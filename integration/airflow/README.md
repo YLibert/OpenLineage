@@ -115,6 +115,7 @@ suited to extract metadata from a particular operator (or operators).
 * `GreatExpectationsOperator`
 * `SFTPOperator`
 * `PythonOperator`
+* `DbtCloudRunJobOperator`
 
 SQL Operators utilize the SQL parser. There is an experimental SQL parser activated if you install [openlineage-sql](https://pypi.org/project/openlineage-sql) on your Airflow worker.
 

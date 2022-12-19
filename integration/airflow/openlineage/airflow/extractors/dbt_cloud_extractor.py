@@ -1,11 +1,13 @@
 # Copyright 2018-2022 contributors to the OpenLineage project
 # SPDX-License-Identifier: Apache-2.0
 
-import logging, re, os, uuid
+import logging
+import re
+import os
+import uuid
 from datetime import datetime, timezone
-import logging, traceback
+import traceback
 from typing import List, Dict, Optional
-from urllib.parse import urlparse
 
 # for concurrent processing
 from concurrent.futures import ThreadPoolExecutor
@@ -15,8 +17,7 @@ from openlineage.airflow.extractors.base import (
     TaskMetadata
 )
 
-from openlineage.common.dataset import Dataset, Source, Field
-from openlineage.client.facet import SqlJobFacet, ErrorMessageRunFacet
+from openlineage.client.facet import ErrorMessageRunFacet
 from openlineage.client.run import RunEvent, RunState, Run, Job
 from openlineage.client.client import OpenLineageClient
 from openlineage.common.provider.dbt import ParentRunMetadata
@@ -65,7 +66,9 @@ def dbt_run_event(
     )
 
 
-def dbt_run_event_start(job_name: str, job_namespace: str, parent_run_metadata: ParentRunMetadata) -> RunEvent:
+def dbt_run_event_start(
+        job_name: str, job_namespace: str, parent_run_metadata: ParentRunMetadata
+        ) -> RunEvent:
     return dbt_run_event(
         state=RunState.START,
         job_name=job_name,
@@ -89,19 +92,16 @@ def dbt_run_event_end(
     )
 
 
-# class DbtCloudExtractor(BaseExtractor):
 class DbtCloudExtractor(BaseExtractor):
     default_schema = 'public'
-    
+
     def __init__(self, operator):
         super().__init__(operator)
         self.context = {}
 
-
     @classmethod
     def get_operator_classnames(cls) -> List[str]:
         return ['DbtCloudRunJobOperator', 'DbtCloudJobRunSensor']
-
 
     def get_task_metadata(self):
         try:
@@ -126,7 +126,6 @@ class DbtCloudExtractor(BaseExtractor):
                 job_facets=job_facets,
             )
 
-
     def extract(self) -> TaskMetadata:
         operator = self.operator
         # according to the job type, pre-perform the necessary
@@ -150,7 +149,9 @@ class DbtCloudExtractor(BaseExtractor):
             connection = BaseHook.get_connection(operator.dbt_cloud_conn_id)
             account_id = connection.login
             hook = DbtCloudHook(operator.dbt_cloud_conn_id)
-            job_run = hook.get_job_run(account_id=account_id, run_id=run_id, include_related=['job']).json()['data']
+            job_run = hook.get_job_run(
+                account_id=account_id, run_id=run_id, include_related=['job']
+                ).json()['data']
             project_id = job_run['project_id']
             job = job_run['job']
             project = hook.get_project(project_id=project_id, account_id=account_id).json()['data']
@@ -160,7 +161,6 @@ class DbtCloudExtractor(BaseExtractor):
 
         return self.get_task_metadata()
 
-
     # internal method to extract dbt lineage and send it to
     # OL backend
     def extract_dbt_lineage(self, operator, run_id, parent_run_id=None, job_name=None):
@@ -168,7 +168,9 @@ class DbtCloudExtractor(BaseExtractor):
         account_id = job['account_id']
         hook = DbtCloudHook(operator.dbt_cloud_conn_id)
         execute_steps = job['execute_steps']
-        job_run = hook.get_job_run(run_id=run_id, account_id=account_id, include_related=['run_steps']).json()['data']
+        job_run = hook.get_job_run(
+            run_id=run_id, account_id=account_id, include_related=['run_steps']
+            ).json()['data']
         run_steps = job_run['run_steps']
         connection = self.context['connection']
         steps = []
@@ -186,17 +188,30 @@ class DbtCloudExtractor(BaseExtractor):
         for step in steps:
             artifacts = {}
             self.run_io_tasks_in_parallel([
-                lambda: self.get_dbt_artifacts(hook=hook, run_id=run_id, path="manifest.json", account_id=account_id, artifacts=artifacts, key="manifest", step=step),
-                lambda: self.get_dbt_artifacts(hook=hook, run_id=run_id, path="run_results.json", account_id=account_id, artifacts=artifacts, key="run_results", step=step),
-                lambda: self.get_dbt_artifacts(hook=hook, run_id=run_id, path="catalog.json", account_id=account_id, artifacts=artifacts, key="catalog", step=None)
+                lambda: self.get_dbt_artifacts(
+                    hook=hook, run_id=run_id, path="manifest.json", account_id=account_id,
+                    artifacts=artifacts, key="manifest", step=step
+                    ),
+                lambda: self.get_dbt_artifacts(
+                    hook=hook, run_id=run_id, path="run_results.json", account_id=account_id,
+                    artifacts=artifacts, key="run_results", step=step
+                    ),
+                lambda: self.get_dbt_artifacts(
+                    hook=hook, run_id=run_id, path="catalog.json", account_id=account_id,
+                    artifacts=artifacts, key="catalog", step=None
+                    )
             ])
             artifacts['connection'] = connection
             # process manifest
             manifest = artifacts['manifest']
             run_reason = manifest['metadata']['env']['DBT_CLOUD_RUN_REASON']
             # ex: Triggered via Apache Airflow by task 'trigger_job_run1' in the astronomy DAG.
-            # regex pattern: Triggered via Apache Airflow by task '[a-zA-Z0-9_]+' in the [a-zA-Z-0-9_]+ DAG.
-            regex_pattern = "Triggered via Apache Airflow by task '([a-zA-Z0-9_]+)' in the ([a-zA-Z0-9_]+) DAG\."
+            # regex pattern:
+            #   Triggered via Apache Airflow by task '[a-zA-Z0-9_]+' in the [a-zA-Z-0-9_]+ DAG.
+            regex_pattern = (
+                "Triggered via Apache Airflow by task '([a-zA-Z0-9_]+)' "
+                "in the ([a-zA-Z0-9_]+) DAG\\."
+                )
             m = re.search(regex_pattern, run_reason)
             task_id = m.group(1)
             dag_id = m.group(2)
@@ -212,28 +227,32 @@ class DbtCloudExtractor(BaseExtractor):
             # the DBT job can contain parent information (which is the current task)
             if parent_run_id is not None:
                 parent_job = ParentRunMetadata(
-                    run_id = parent_run_id,
-                    job_name = job_name if job_name is not None else f"{dag_id}.{task_id}",
-                    job_namespace = _DAG_NAMESPACE
+                    run_id=parent_run_id,
+                    job_name=job_name if job_name is not None else f"{dag_id}.{task_id}",
+                    job_namespace=_DAG_NAMESPACE
                 )
                 processor.dbt_run_metadata = parent_job
-            
+
             events = processor.parse().events()
             client = OpenLineageClient.from_environment()
             for event in events:
                 client.emit(event)
 
-
     def get_dbt_artifacts(self, hook, run_id, path, account_id, step, artifacts, key):
         response = None
         try:
-            response = hook.get_job_run_artifact(run_id=run_id, path=path, account_id=account_id, step=step).json()
-        except:
-            log.error(f"Error has occurred when getting {path} on {account_id} in {run_id} with step {step}. Will skip the file")
-        
+            response = hook.get_job_run_artifact(
+                run_id=run_id, path=path, account_id=account_id, step=step
+                ).json()
+        except Exception:
+            err_msg = (
+                f"Error has occurred when getting {path} on "
+                f"{account_id} in {run_id} with step {step}. Will skip the file"
+                )
+            log.error(err_msg)
+
         if response is not None:
             artifacts[key] = response
-
 
     def run_io_tasks_in_parallel(self, tasks):
         with ThreadPoolExecutor() as executor:
@@ -241,8 +260,7 @@ class DbtCloudExtractor(BaseExtractor):
             for running_task in running_tasks:
                 running_task.result()
 
-
-    # extract that happens on the 'complete side' 
+    # extract that happens on the 'complete side'
     # we should try to see if we can induce any error here.
     def extract_on_complete(self, task_instance) -> Optional[TaskMetadata]:
         task_meta_data = self.get_task_metadata()
@@ -255,15 +273,21 @@ class DbtCloudExtractor(BaseExtractor):
             run_id = task_instance.xcom_pull(task_ids=task_instance.task_id, key='return_value')
             if operator.wait_for_termination is True:
                 # extract for dbt lineage with given operator
-                self.extract_dbt_lineage(operator=operator, run_id=run_id, parent_run_id=parent_run_id, job_name=f"{task_instance.dag_id}.{task_instance.task_id}")
+                self.extract_dbt_lineage(
+                    operator=operator, run_id=run_id, parent_run_id=parent_run_id,
+                    job_name=f"{task_instance.dag_id}.{task_instance.task_id}"
+                    )
 
-        # if the operator is DbtCloudJobRunSensor, then we will try to emit it, as part of the sensor
+        # if the operator is DbtCloudJobRunSensor, then we will try to emit it,
+        # as part of the sensor
         elif operator.__class__.__name__ == 'DbtCloudJobRunSensor':
             run_data = run_data_holder.get_active_run(task_instance)
             parent_run_id = run_data.run_id
             run_id = operator.run_id
             # extract for dbt lineage with given operator
-            self.extract_dbt_lineage(operator=operator, run_id=run_id, parent_run_id=parent_run_id, job_name=f"{task_instance.dag_id}.{task_instance.task_id}")
+            self.extract_dbt_lineage(
+                operator=operator, run_id=run_id, parent_run_id=parent_run_id,
+                job_name=f"{task_instance.dag_id}.{task_instance.task_id}"
+                )
 
         return task_meta_data
-

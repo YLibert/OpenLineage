@@ -153,6 +153,7 @@ T = TypeVar('T')
 
 logging.getLogger('null').addHandler(logging.NullHandler())
 
+
 # Common class that dbt core and dbt cloud both inherits
 # contains majority of the logics to generate the lineage event
 class DbtBaseProcessor:
@@ -241,7 +242,7 @@ class DbtBaseProcessor:
                 )
             else:
                 raise ValueError(f"Wrong version of dbt metadata: {schema_version}, "
-                                     f"should be in {desired_schema_versions}")
+                                 f"should be in {desired_schema_versions}")
 
     @classmethod
     def get_schema_version(cls, metadata):
@@ -713,6 +714,7 @@ class DbtBaseProcessor:
         else:
             return string[:]
 
+
 class DbtArtifactProcessor(DbtBaseProcessor):
     def __init__(
         self,
@@ -725,10 +727,10 @@ class DbtArtifactProcessor(DbtBaseProcessor):
         logger: logging.Logger = logging.getLogger("null")
     ):
         super().__init__(
-            producer = producer,
-            job_namespace = job_namespace,
-            skip_errors = skip_errors,
-            logger = logger
+            producer=producer,
+            job_namespace=job_namespace,
+            skip_errors=skip_errors,
+            logger=logger
         )
 
         self.dir = os.path.abspath(project_dir)
@@ -792,11 +794,11 @@ class DbtCloudArtifactProcessor(DbtBaseProcessor):
         logger: logging.Logger = logging.getLogger("null")
     ):
         super().__init__(
-            producer = producer,
-            job_namespace = job_namespace,
-            artifacts = artifacts,
-            skip_errors = skip_errors,
-            logger = logger
+            producer=producer,
+            job_namespace=job_namespace,
+            artifacts=artifacts,
+            skip_errors=skip_errors,
+            logger=logger
         )
 
         # process connection provided from
@@ -813,4 +815,3 @@ class DbtCloudArtifactProcessor(DbtBaseProcessor):
             )
         # get the dataset namespace
         self.dataset_namespace = self.extract_namespace(connection['details'])
-
