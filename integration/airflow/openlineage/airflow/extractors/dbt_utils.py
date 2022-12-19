@@ -171,6 +171,7 @@ class DbtBaseProcessor:
         self.job_namespace = job_namespace
         self.skip_errors = skip_errors
         self._dbt_run_metadata: Optional[ParentRunMetadata] = None
+        self.jinja_environment = None
 
     @property
     def dbt_run_metadata(self):
@@ -293,7 +294,7 @@ class DbtBaseProcessor:
 
     def load_yaml_with_jinja(self, path: str) -> Dict:
         loaded = self.load_yaml(path)
-        if not self.jinja_environment:
+        if self.jinja_environment is None:
             self.jinja_environment = self.setup_jinja()
         return self.render_values_jinja(environment=self.jinja_environment, value=loaded)
 
