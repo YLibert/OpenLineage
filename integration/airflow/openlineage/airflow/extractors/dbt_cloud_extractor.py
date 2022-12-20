@@ -27,7 +27,7 @@ from airflow.hooks.base import BaseHook
 from airflow.providers.dbt.cloud.hooks.dbt import DbtCloudHook
 
 # Our version of DbtCloudArtifactProcessor
-from dbt_utils import DbtCloudArtifactProcessor
+from openlineage.airflow.extractors.dbt_utils import DbtCloudArtifactProcessor
 
 log = logging.getLogger(__name__)
 
