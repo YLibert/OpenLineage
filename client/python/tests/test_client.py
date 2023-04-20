@@ -58,7 +58,8 @@ def test_client_sends_proper_json_with_minimal_event():
             "2021-11-03T10:53:52.427343",
             Run("69f4acab-b87d-4fc0-b27b-8ea950370ff3"),
             Job("openlineage", "job"),
-            "producer"
+            "producer",
+            "schemaURL"
         )
     )
 
@@ -67,7 +68,7 @@ def test_client_sends_proper_json_with_minimal_event():
         '{"eventTime": "2021-11-03T10:53:52.427343", "eventType": "START", "inputs": [], "job": '
         '{"facets": {}, "name": "job", "namespace": "openlineage"}, "outputs": [], '
         '"producer": "producer", "run": {"facets": {}, "runId": '
-        '"69f4acab-b87d-4fc0-b27b-8ea950370ff3"}}',
+        '"69f4acab-b87d-4fc0-b27b-8ea950370ff3"}, "schemaURL": "schemaURL"}',
         timeout=5.0,
         verify=True
     )
